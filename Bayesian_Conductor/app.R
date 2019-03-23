@@ -83,6 +83,7 @@ ui <- fluidPage(
                 textOutput("date_range_sel"),
                 textOutput("total_rides"),
                 textOutput("total_inspections"),
+                textOutput("hello_world"),
                 plotOutput("dat_plot"))
    )
 )
@@ -106,6 +107,7 @@ server <- function(input, output) {
     values$counter <- values$counter + 1
     saveData(formData(), fileName = data_filename, dat_ID= values$counter)
     current_dat <- as.data.frame(loadData(fileName = data_filename))
+    output$hello_world <- renderText("Thank you for your data!")
   })
   
   output$type_selected <- renderText({paste("You have selected type: ", input$tr_type)})

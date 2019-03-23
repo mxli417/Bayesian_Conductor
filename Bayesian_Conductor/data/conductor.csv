@@ -1,3 +1,3 @@
 "","X.ID.","X.date_start.","X.date_stop.","X.tr_type.","X.number_inspections.","X.total_rides.","X.fraction.","X.empirical_b."
 "1","ID","date_start","date_stop","tr_type","number_inspections","total_rides","fraction","empirical_b"
-"1",1,2019-03-18,2019-03-18,2,3,5,0.6,0
+"1",1,2019-03-24,2019-03-26,2,9,13,0.692307692307692,0
