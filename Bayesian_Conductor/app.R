@@ -107,7 +107,7 @@ server <- function(input, output) {
     values$counter <- values$counter + 1
     saveData(formData(), fileName = data_filename, dat_ID= values$counter)
     current_dat <- as.data.frame(loadData(fileName = data_filename))
-    output$hello_world <- renderText("Thank you for your data!")
+    output$hello_world <- renderText("Thank you for your data!, blabla")
   })
   
   output$type_selected <- renderText({paste("You have selected type: ", input$tr_type)})
