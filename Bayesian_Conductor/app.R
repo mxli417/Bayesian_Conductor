@@ -19,7 +19,7 @@ saveData <- function(in_data, current_data, fileName, dat_ID) {
                          "number_inspections" = in_data$number_inspections,
                          "total_rides" = in_data$total_rides,
                          "fraction" = in_data$number_inspections /in_data$total_rides,
-                         "empirical_b" = 0)
+                         "empirical_b" = bayesian_update(in_data$tr_type, in_data$number_inspections, in_data$total_rides))
   #combine the data frames
   if (!is.null(current_data)){
     latest_data <- rbind(current_data, out_data)
@@ -111,7 +111,8 @@ ui <- fluidPage(
       mainPanel(
               tabsetPanel(
                 tabPanel("Data table", DT::dataTableOutput("responses", width = 300), tags$hr(), position="above"), 
-                tabPanel("Estimate Plots", plotOutput("dat_plot")), 
+                tabPanel("Direct Estimate Plots", plotOutput("dat_dir_plot")), 
+                tabPanel("Durable Estimate Plots", htmlOutput("warning"), plotOutput("dat_dur_plot")), 
                 tabPanel("Summary / Maths of Estimation", verbatimTextOutput("summary"))
               )
      )
@@ -161,7 +162,7 @@ server <- function(input, output) {
     })     
   
   #render plot of current overall risk per type of train
-  output$dat_plot <- renderPlot({
+  output$dat_dir_plot <- renderPlot({
     if (is.null(values$current_dat)==FALSE){
       if (values$counter>1){
         #collapse current data by train type into new data frame for plotting
@@ -198,6 +199,52 @@ server <- function(input, output) {
     }
   })
   
+  #render plot of accumulated data if data per each train type >=500
+  #render plot of current overall risk per type of train
+  output$dat_dur_plot <- renderPlot({
+    if (is.null(values$current_dat)==FALSE){
+      if (values$counter>1){
+        #collapse current data by train type into new data frame for plotting
+        bayes_dur_dat <- aggregate(values$current_dat[, names(values$current_dat) %in% 
+                                                            c("number_inspections", "total_rides")], 
+                                       list(tr_type = values$current_dat$tr_type), sum)
+        #recalculate the overall fraction and insert variable empirical_b
+        bayes_dur_dat$fraction <- bayes_dur_dat$number_inspections / bayes_dur_dat$total_rides
+        bayes_dur_dat$empirical_b <- bayesian_update(as.numeric(bayes_dur_dat$tr_type), 
+                                                     bayes_dur_dat$number_inspections, 
+                                                     bayes_dur_dat$total_rides)
+        #value label the data
+        bayes_dur_dat$tr_type <- factor(bayes_dur_dat$tr_type,
+                                            levels = c(1,2,3),
+                                            labels = c("ICE", "RE / RB", "Sbahn"))
+        if (sum(bayes_dur_dat$total_rides)>=1500){
+          #generate plot
+          p1 <- ggplot(data = bayes_overall_dat, aes(x=tr_type, y=fraction)) + 
+            geom_bar(stat="identity", color="blue", fill="white") + 
+            theme_minimal() +  
+            xlab("Train Types") +
+            ylab("Risk of ticket inspection [%]") +
+            geom_text(aes(label=round(fraction, 2)), vjust=1.6, size=3.5, color="blue") +
+            ggtitle("Empirical risk of ticket inspection")
+          p2 <- ggplot(data = bayes_overall_dat, aes(x=tr_type, y=empirical_b)) + 
+            geom_bar(stat="identity", color="red", fill="white") + 
+            theme_minimal() +  
+            xlab("Train Types") +
+            geom_text(aes(label=round(empirical_b, 2)), vjust=1.6, size=3.5, color="red") + 
+            ylab("Risk of ticket inspection [%]") + 
+            ggtitle("Estimated risk of ticket inspection")
+          #render plot
+          grid.arrange(p1, p2, nrow = 1)
+        } else {
+          output$warning <- renderUI({
+            str1 <- "I cannot yet render a plot for you, insufficient data for realiable estimation!"
+            str2 <- paste("(", (1500-sum(bayes_dur_dat$total_rides))," observations missing)")
+            HTML(paste(str1, str2, sep = '<br/>'))
+          })
+        }
+      }
+    }
+  })
   
 }
 
