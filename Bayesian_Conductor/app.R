@@ -5,12 +5,12 @@
 library(shiny)
 library(ggplot2)
 library(DT)
-library(hashids)
+library(gridExtra)
 
 # for online deployment, one has to use remote storing, an article about which
 # can be found here: https://shiny.rstudio.com/articles/persistent-data-storage.html#basic
 #####
-#Functions
+# My functions for this app #
 saveData <- function(in_data, current_data, fileName, dat_ID) {
   out_data <- data.frame("ID" = dat_ID,
                          "date_start" = in_data$date_start, 
@@ -18,7 +18,7 @@ saveData <- function(in_data, current_data, fileName, dat_ID) {
                          "tr_type" = in_data$tr_type,
                          "number_inspections" = in_data$number_inspections,
                          "total_rides" = in_data$total_rides,
-                         "faction" = in_data$number_inspections /in_data$total_rides,
+                         "fraction" = in_data$number_inspections /in_data$total_rides,
                          "empirical_b" = 0)
   #combine the data frames
   if (!is.null(current_data)){
@@ -43,6 +43,35 @@ loadData <- function(fileName) {
     }
 }
 
+bayesian_update <- function(tr_type, sum_inspections, sum_total_rides){
+  # take in data from data frame, calculate posterior expected value while using train specific priors
+  # better rewrite this more elegantly
+  prior_alpha <- 0; prior_beta <- 0
+  if (tr_type==1){
+    prior_alpha <- 15
+    prior_beta <- 2
+  }
+  if (tr_type==2){
+    prior_alpha <- 8
+    prior_beta <- 4
+  }
+  if (tr_type==3){
+    prior_alpha <- 4
+    prior_beta <- 4
+  }
+  #cat("prior alpha: ", prior_alpha)
+  #cat("prior beta: ", prior_beta)
+  # calculate specific updated distribution parameters
+  updated_alpha <- sum_inspections+prior_alpha
+  updated_beta <- sum_total_rides+prior_beta-sum_inspections
+  # calculate posterior expectation
+  post_exp <- updated_alpha / (updated_alpha + updated_beta)
+  # calculate posterior variance
+  #post_var <- ((updated_alpha*updated_beta) / (updated_alpha+updated_beta)^2 * (updated_alpha + updated_beta + 1))
+  # return posterior expectation and variance
+  return(post_exp)
+}
+
 #####
 
 #Upfront working directory setup
@@ -57,7 +86,7 @@ if (!dir.exists("data")) {
 ui <- fluidPage(
    # Application title
    titlePanel("Bayesian Conductor"),
-   # Sidebar with 
+   # Sidebar with input fields and info text
    sidebarLayout(
       sidebarPanel(
         h4("Insert your data"),
@@ -75,15 +104,17 @@ ui <- fluidPage(
                     min = 0, max = 100, value = 5),
         sliderInput("number_inspections", "Total number of ticket inspections for these rides",
                     min = 0, max = 100, value = 3),
-        actionButton("Submit", "Submit your data")
+        actionButton("Submit", "Submit your data"),
+        br(),
+        textOutput("user_message")
       ),
-      mainPanel(DT::dataTableOutput("responses", width = 300), tags$hr(),
-                textOutput("type_selected"),
-                textOutput("date_range_sel"),
-                textOutput("total_rides"),
-                textOutput("total_inspections"),
-                textOutput("hello_world"),
-                plotOutput("dat_plot"))
+      mainPanel(
+              tabsetPanel(
+                tabPanel("Data table", DT::dataTableOutput("responses", width = 300), tags$hr(), position="above"), 
+                tabPanel("Estimate Plots", plotOutput("dat_plot")), 
+                tabPanel("Summary / Maths of Estimation", verbatimTextOutput("summary"))
+              )
+     )
    )
 )
 
@@ -91,7 +122,8 @@ ui <- fluidPage(
 server <- function(input, output) {
   
   # set up reactive values, i.e. dynamic values
-  values <- reactiveValues(counter = 0, current_dat = NULL)
+  values <- reactiveValues(counter = 0, 
+                           current_dat = NULL)
   
   # Whenever a field is filled, aggregate all form data
   formData <- reactive({
@@ -109,13 +141,8 @@ server <- function(input, output) {
     saveData(formData(), current_data =  values$current_dat, fileName = data_filename, dat_ID = values$counter)
     #get latest data after saving
     values$current_dat <- loadData(fileName = data_filename)
-    output$hello_world <- renderText("Thank you for your data!")
+    output$user_message <- renderText("Thank you for your data!")
   })
-  
-  output$type_selected <- renderText({paste("You have selected type: ", input$tr_type)})
-  output$date_range_sel <- renderText({paste("dates from: ", as.Date(input$date_range[1], origin = "1970-01-01"), " until: ", as.Date(input$date_range[2], origin = "1970-01-01"))})
-  output$total_rides <- renderText({paste("total number of train rides:", input$total_rides)})
-  output$total_inspections <- renderText({paste("total number of ticket inspections: ", input$number_inspections)})
   
   #render Table
   output$responses <- DT::renderDataTable({
@@ -123,13 +150,55 @@ server <- function(input, output) {
     #dynamically input this new data to the reactive environment
     values$current_dat <- loadData(data_filename)
     #load latest ID from data 
-    if (values$current_dat$ID[nrow(values$current_dat)]>1){
+    if (is.null(values$current_dat)==FALSE){
+      if (values$current_dat$ID[nrow(values$current_dat)]>1){
       values$counter <- values$current_dat$ID[nrow(values$current_dat)]
+      }
     }
     #render current data
     input$Submit
     loadData(fileName = data_filename)
     })     
+  
+  #render plot of current overall risk per type of train
+  output$dat_plot <- renderPlot({
+    if (is.null(values$current_dat)==FALSE){
+      if (values$counter>1){
+        #collapse current data by train type into new data frame for plotting
+        bayes_overall_dat <- aggregate(values$current_dat[, names(values$current_dat) %in% 
+                              c("number_inspections", "total_rides")], 
+                              list(tr_type = values$current_dat$tr_type), sum)
+        #recalculate the overall fraction and insert variable empirical_b
+        bayes_overall_dat$fraction <- bayes_overall_dat$number_inspections / bayes_overall_dat$total_rides
+        bayes_overall_dat$empirical_b <- bayesian_update(as.numeric(bayes_overall_dat$tr_type), 
+                                                         bayes_overall_dat$number_inspections, 
+                                                         bayes_overall_dat$total_rides)
+        #value label the data
+        bayes_overall_dat$tr_type <- factor(bayes_overall_dat$tr_type,
+                                            levels = c(1,2,3),
+                                            labels = c("ICE", "RE / RB", "Sbahn"))
+        #generate plot
+        p1 <- ggplot(data = bayes_overall_dat, aes(x=tr_type, y=fraction)) + 
+                  geom_bar(stat="identity", color="blue", fill="white") + 
+                  theme_minimal() +  
+                  xlab("Train Types") +
+                  ylab("Risk of ticket inspection [%]") +
+                  geom_text(aes(label=round(fraction, 2)), vjust=1.6, size=3.5, color="blue") +
+                  ggtitle("Empirical risk of ticket inspection")
+        p2 <- ggplot(data = bayes_overall_dat, aes(x=tr_type, y=empirical_b)) + 
+                geom_bar(stat="identity", color="red", fill="white") + 
+                theme_minimal() +  
+                xlab("Train Types") +
+                geom_text(aes(label=round(empirical_b, 2)), vjust=1.6, size=3.5, color="red") + 
+                ylab("Risk of ticket inspection [%]") + 
+                ggtitle("Estimated risk of ticket inspection")
+       #render plot
+       grid.arrange(p1, p2, nrow = 1)
+      }
+    }
+  })
+  
+  
 }
 
 # Run the application 
