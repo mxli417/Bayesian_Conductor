@@ -47,18 +47,21 @@ bayesian_update <- function(tr_type, sum_inspections, sum_total_rides){
   # take in data from data frame, calculate posterior expected value while using train specific priors
   # better rewrite this more elegantly
   prior_alpha <- 0; prior_beta <- 0
-  if (tr_type==1){
+  if (tr_type[1]==1){
     prior_alpha <- 15
     prior_beta <- 2
   }
-  if (tr_type==2){
+  if (tr_type[1]==2){
     prior_alpha <- 8
     prior_beta <- 4
   }
-  if (tr_type==3){
+  if (tr_type[1]==3){
     prior_alpha <- 4
     prior_beta <- 4
   }
+  # sapply(tr_type, function(x){
+  #   #cat("Input via tr: ",x)
+  # })
   #cat("prior alpha: ", prior_alpha)
   #cat("prior beta: ", prior_beta)
   # calculate specific updated distribution parameters
