@@ -1,4 +1,3 @@
-#
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
 
@@ -150,7 +149,7 @@ server <- function(input, output) {
   
   #render Table
   output$responses <- DT::renderDataTable({
-    print("Render load of data")
+    #print("Render load of data")
     #dynamically input this new data to the reactive environment
     values$current_dat <- loadData(data_filename)
     #load latest ID from data 
@@ -248,9 +247,7 @@ server <- function(input, output) {
       }
     }
   })
-  
 }
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
