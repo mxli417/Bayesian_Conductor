@@ -44,7 +44,8 @@ loadData <- function(fileName) {
 
 bayesian_update <- function(tr_type, sum_inspections, sum_total_rides){
   # take in data from data frame, calculate posterior expected value while using train specific priors
-  # better rewrite this more elegantly
+  # scale is == 1
+  # better rewrite this more elegantly 
   prior_alpha <- 0; prior_beta <- 0
   if (tr_type[1]==1){
     prior_alpha <- 15
