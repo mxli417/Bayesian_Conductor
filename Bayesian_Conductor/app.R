@@ -5,6 +5,7 @@ library(shiny)
 library(ggplot2)
 library(DT)
 library(gridExtra)
+library(MASS)
 
 # for online deployment, one has to use remote storing, an article about which
 # can be found here: https://shiny.rstudio.com/articles/persistent-data-storage.html#basic
@@ -75,6 +76,14 @@ bayesian_update <- function(tr_type, sum_inspections, sum_total_rides){
   return(post_exp)
 }
 
+estimate_dbeta <- function(fractions){
+  fitdbeta <- MASS::fitdistr(fractions, dbeta,
+                      start = list(shape1 = 1, shape2 = 10))
+  emp_alpha <- fitdbeta$estimate[1]
+  emp_beta <- fitdbeta$estimate[2]
+  return(emp_alpha, emp_beta)
+}
+
 #####
 
 #Upfront working directory setup
@@ -113,7 +122,7 @@ ui <- fluidPage(
       ),
       mainPanel(
               tabsetPanel(
-                tabPanel("Data table", DT::dataTableOutput("responses", width = 300), tags$hr(), position="above"), 
+                tabPanel("Data table", DT::dataTableOutput("responses", width = 300), plotOutput("est_dbeta"), tags$hr(), position="above"), 
                 tabPanel("Direct Estimate Plots", plotOutput("dat_dir_plot")), 
                 tabPanel("Durable Estimate Plots", htmlOutput("warning"), plotOutput("dat_dur_plot")), 
                 tabPanel("Summary / Maths of Estimation", verbatimTextOutput("summary"))
@@ -162,7 +171,51 @@ server <- function(input, output) {
     #render current data
     input$Submit
     loadData(fileName = data_filename)
-    })     
+    })   
+  
+  #render currently estimated prior (beta - dist) from current data
+  output$est_dbeta <- renderPlot(
+    if (is.null(values$current_dat)==FALSE){
+      if (values$counter>1){
+        #fit empirical dbeta prioris to the data (one per train type)
+        #keep in mind: first estimated parameter = alpha, second = beta (for dbeta!)
+        # beta_seq <-  seq(0,1, length=100)
+        # print(str(values$current_dat[values$current_dat$tr_type==1, "fraction"]))
+        # print(values$current_dat[values$current_dat$tr_type==1, "fraction"])
+        # param_list_ice <- estimate_dbeta(values$current_dat[values$current_dat$tr_type==1, "fraction"])
+        # ice_dist <- dbeta(beta_seq, param_list_ice[1], param_list_ice[2])
+        # param_list_rerb <- estimate_dbeta(values$current_dat[values$current_dat$tr_type==2, "fraction"])
+        # rerb_dist <- dbeta(beta_seq, param_list_rerb[1], param_list_rerb[2])
+        # param_list_sbahn <- estimate_dbeta(values$current_dat[values$current_dat$tr_type==3, "fraction"])
+        # rerb_dist <- dbeta(beta_seq, param_list_sbahn[1], param_list_sbahn[2])
+        #plot current empirical fractions & render estimated dbeta on top
+        histo_fraction_ice <- ggplot(data=values$current_dat[values$current_dat$tr_type==1, ], 
+                                     aes(x=fraction)) + 
+                                     geom_histogram() +
+                                     #stat_function(fun = dbeta, colour = "red", args = list(shape1 = param_list_ice[1], shape2= param_list_ice[2])) + 
+                                     theme_minimal() +  
+                                     xlab("fraction values") +
+                                     ylab("value counts") +
+                                     ggtitle("Histogram of fractions for ICEs")
+        histo_fraction_rerb <- ggplot(data=values$current_dat[values$current_dat$tr_type==2, ], 
+                                     aes(x=fraction)) + 
+                                     geom_histogram() + 
+                                     #stat_function(fun = dbeta, colour = "red", args = list(shape1 = param_list_rerb[1], shape2= param_list_rerb[2])) + 
+                                     theme_minimal() +  
+                                     xlab("fraction values") +
+                                     ylab("value counts") +
+                                     ggtitle("Histogram of fractions for RE/RBs")
+        histo_fraction_sbahn <- ggplot(data=values$current_dat[values$current_dat$tr_type==3, ], 
+                                      aes(x=fraction)) + 
+                                      geom_histogram() +
+                                      #stat_function(fun = dbeta, colour = "red", args = list(shape1 = param_list_sbahn[1], shape2= param_list_sbahn[2])) + 
+                                      theme_minimal() +  
+                                      xlab("fraction values") +
+                                      ylab("value counts") +
+                                      ggtitle("Histogram of fractions for ICEs")
+        grid.arrange(histo_fraction_ice, histo_fraction_rerb, histo_fraction_sbahn, nrow=3)
+      }
+    })
   
   #render plot of current overall risk per type of train
   output$dat_dir_plot <- renderPlot({
