@@ -142,3 +142,5 @@ report their experiences and then aggregate the data. Hence, this app
 is merely a small exercise in bayesian inference based on an interesting
 example - I hope you enjoy playing around with it and have some fun!
 
+If you want to report bugs & other issues, feel free to use: [Issue tracker](https://github.com/mxli417/Bayesian_Conductor/issues)
+
