@@ -312,13 +312,8 @@ server <- function(input, output) {
       }
     }
   })
-  
-  # #render markdown & include about section
-  #  output$about <- renderUI({
-  #   withMathJax(HTML(includeHTML("about.html"))) 
-  #  })
-  
-  # render markdown & include
+
+  # render markdown & include the about - section text
   output$about <- renderUI(withMathJax(includeHTML("about.html"))
   )
 }
