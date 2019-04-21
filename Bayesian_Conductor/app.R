@@ -1,11 +1,11 @@
 # This is a Shiny web application. You can run the application by clicking
 # the 'Run App' button above.
-
 library(shiny)
 library(ggplot2)
 library(DT)
 library(gridExtra)
 library(MASS)
+library(markdown)
 
 #####
 # My functions for this app #
@@ -80,7 +80,6 @@ if (!dir.exists("data")) {
   dir.create("data")
 }
 
-#####
 
 ##### 
 #define UI for application 
@@ -127,11 +126,12 @@ ui <- fluidPage(
                 
                 tabPanel("Durable Estimate Plots", 
                          htmlOutput("warning"), 
-                         plotOutput("dat_dur_plot")), 
+                         plotOutput("dat_dur_plot")),
                 
-                tabPanel("Summary / Maths of Estimation", 
-                         verbatimTextOutput("summary"))
+                 # tabPanel("About", br(), withMathJax(),
+                 #          uiOutput("about"))
                 
+                tabPanel("About", withMathJax(), htmlOutput("about"))
               )
             )
    )
@@ -312,6 +312,15 @@ server <- function(input, output) {
       }
     }
   })
+  
+  # #render markdown & include about section
+  #  output$about <- renderUI({
+  #   withMathJax(HTML(includeHTML("about.html"))) 
+  #  })
+  
+  # render markdown & include
+  output$about <- renderUI(withMathJax(includeHTML("about.html"))
+  )
 }
 
 #####
