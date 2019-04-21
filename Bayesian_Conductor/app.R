@@ -7,33 +7,36 @@ library(DT)
 library(gridExtra)
 library(MASS)
 
-# for online deployment, one has to use remote storing, an article about which
-# can be found here: https://shiny.rstudio.com/articles/persistent-data-storage.html#basic
 #####
 # My functions for this app #
-saveData <- function(in_data, current_data, fileName, dat_ID) {
+
+save_data <- function(in_data, current_data, fileName, dat_ID) {
   out_data <- data.frame("ID" = dat_ID,
                          "date_start" = in_data$date_start, 
                          "date_stop" = in_data$date_stop, 
                          "tr_type" = in_data$tr_type,
                          "number_inspections" = in_data$number_inspections,
                          "total_rides" = in_data$total_rides,
-                         "fraction" = in_data$number_inspections /in_data$total_rides,
-                         "empirical_b" = bayesian_update(in_data$tr_type, in_data$number_inspections, in_data$total_rides))
+                         "fraction" = in_data$number_inspections/
+                                      in_data$total_rides,
+                         "empirical_b" = update_bayesian(in_data$tr_type, 
+                         in_data$number_inspections, in_data$total_rides))
   #combine the data frames
   if (!is.null(current_data)){
     latest_data <- rbind(current_data, out_data)
     write.csv(latest_data, fileName, row.names = FALSE)
   } else {
-    print("First save")
+    # print("First save")
     # Write the file to the local system
     write.csv(out_data, fileName, row.names = FALSE)
   }
 }
 
-loadData <- function(fileName) {
+load_data <- function(fileName) {
     if (file.exists(fileName)){
-      ldata <- as.data.frame(read.csv(fileName, stringsAsFactors = FALSE, header = TRUE))
+      ldata <- as.data.frame(read.csv(fileName, 
+                                      stringsAsFactors = FALSE, 
+                                      header = TRUE))
       #recover correct date time
       ldata$date_start <- as.Date(ldata$date_start, origin = "1970-01-01")
       ldata$date_stop <- as.Date(ldata$date_stop, origin = "1970-01-01")
@@ -43,10 +46,11 @@ loadData <- function(fileName) {
     }
 }
 
-bayesian_update <- function(tr_type, sum_inspections, sum_total_rides){
-  # take in data from data frame, calculate posterior expected value while using train specific priors
+update_bayesian <- function(tr_type, sum_inspections, sum_total_rides){
+  # take in data from data frame, 
+  # calculate posterior expected value while using train specific priors
   # scale is == 1
-  # better rewrite this more elegantly 
+  # TODO for later: rewrite this more elegantly 
   prior_alpha <- 0; prior_beta <- 0
   if (tr_type[1]==1){
     prior_alpha <- 15
@@ -60,33 +64,17 @@ bayesian_update <- function(tr_type, sum_inspections, sum_total_rides){
     prior_alpha <- 4
     prior_beta <- 4
   }
-  # sapply(tr_type, function(x){
-  #   #cat("Input via tr: ",x)
-  # })
-  #cat("prior alpha: ", prior_alpha)
-  #cat("prior beta: ", prior_beta)
-  # calculate specific updated distribution parameters
   updated_alpha <- sum_inspections+prior_alpha
   updated_beta <- sum_total_rides+prior_beta-sum_inspections
   # calculate posterior expectation
   post_exp <- updated_alpha / (updated_alpha + updated_beta)
-  # calculate posterior variance
-  #post_var <- ((updated_alpha*updated_beta) / (updated_alpha+updated_beta)^2 * (updated_alpha + updated_beta + 1))
-  # return posterior expectation and variance
+  # return posterior expectation
   return(post_exp)
-}
-
-estimate_dbeta <- function(fractions){
-  fitdbeta <- MASS::fitdistr(fractions, dbeta,
-                      start = list(shape1 = 1, shape2 = 10))
-  emp_alpha <- fitdbeta$estimate[1]
-  emp_beta <- fitdbeta$estimate[2]
-  return(emp_alpha, emp_beta)
 }
 
 #####
 
-#Upfront working directory setup
+#intial working directory setup
 data_filename <- "data/conductor.csv"
 if (!dir.exists("data")) {
   dir.create("data")
@@ -94,74 +82,98 @@ if (!dir.exists("data")) {
 
 #####
 
-# Define UI for application that draws a histogram
+##### 
+#define UI for application 
 ui <- fluidPage(
-   # Application title
+   # application title
    titlePanel("Bayesian Conductor"),
-   # Sidebar with input fields and info text
+   # sidebar with input fields and info text
    sidebarLayout(
       sidebarPanel(
         h4("Insert your data"),
-        p("Create an individual data record where you enter your experienced ticket inspections during
+        p("Create an individual data record where you enter your 
+          experienced ticket inspections during
           your total number of train rides."),
         selectInput("tr_type", 
                     label="Select the train type you used: ", 
                     choices = list("ICE" = 1, "RE/RB" = 2,
                                    "S-Bahn" = 3), selected = 1),
-        helpText("Note: Please provide a date range during which you took train rides,",
+        helpText("Note: Please provide a date range during which 
+                 you took train rides,",
                  "a count of ticket inspections you experienced (see below),",
-                 "and the total number of train rides you took during the reported date range."),
+                 "and the total number of train rides you took during the 
+                 reported date range."),
         dateRangeInput("date_range", h4("Date range")),
         sliderInput("total_rides", h4("Total number of train rides"),
                     min = 0, max = 100, value = 5),
-        sliderInput("number_inspections", "Total number of ticket inspections for these rides",
+        sliderInput("number_inspections", "Total number of ticket inspections 
+                    for these rides",
                     min = 0, max = 100, value = 3),
         actionButton("Submit", "Submit your data"),
         br(),
         textOutput("user_message")
       ),
+      
       mainPanel(
               tabsetPanel(
-                tabPanel("Data table", DT::dataTableOutput("responses", width = 300), plotOutput("est_dbeta"), tags$hr(), position="above"), 
-                tabPanel("Direct Estimate Plots", plotOutput("dat_dir_plot")), 
-                tabPanel("Durable Estimate Plots", htmlOutput("warning"), plotOutput("dat_dur_plot")), 
-                tabPanel("Summary / Maths of Estimation", verbatimTextOutput("summary"))
+                
+                tabPanel("Data table", 
+                         DT::dataTableOutput("responses", width = 300), 
+                         plotOutput("est_dbeta"), tags$hr(), 
+                         position="above"), 
+                
+                tabPanel("Direct Estimate Plots", 
+                         plotOutput("dat_dir_plot")), 
+                
+                tabPanel("Durable Estimate Plots", 
+                         htmlOutput("warning"), 
+                         plotOutput("dat_dur_plot")), 
+                
+                tabPanel("Summary / Maths of Estimation", 
+                         verbatimTextOutput("summary"))
+                
               )
-     )
+            )
    )
 )
 
-# Define server logic
+
+#####
+#define server logic
 server <- function(input, output) {
   
   # set up reactive values, i.e. dynamic values
   values <- reactiveValues(counter = 0, 
                            current_dat = NULL)
   
-  # Whenever a field is filled, aggregate all form data
+  # whenever a field is filled, aggregate all form data
   formData <- reactive({
-    newdata <- list(date_start= as.Date(input$date_range[1], origin = "1970-01-01"), 
-                    date_stop= as.Date(input$date_range[2], origin = "1970-01-01"), 
+    newdata <- list(date_start= as.Date(input$date_range[1], 
+                                        origin = "1970-01-01"), 
+                    date_stop= as.Date(input$date_range[2], 
+                                       origin = "1970-01-01"), 
                     tr_type= as.integer(input$tr_type), 
                     number_inspections= input$number_inspections, 
                     total_rides= input$total_rides)
     newdata #return
   })
 
-  # When the Submit button is clicked, save the form data
+  # when the Submit button is clicked, save the form data & put out a message
   observeEvent(input$Submit, {
     values$counter <- values$counter + 1
-    saveData(formData(), current_data =  values$current_dat, fileName = data_filename, dat_ID = values$counter)
+    save_data(formData(), 
+              current_data =  values$current_dat, 
+              fileName = data_filename, 
+              dat_ID = values$counter)
     #get latest data after saving
-    values$current_dat <- loadData(fileName = data_filename)
+    values$current_dat <- load_data(fileName = data_filename)
     output$user_message <- renderText("Thank you for your data!")
   })
   
-  #render Table
+  #render table
   output$responses <- DT::renderDataTable({
-    #print("Render load of data")
     #dynamically input this new data to the reactive environment
-    values$current_dat <- loadData(data_filename)
+    values$current_dat <- load_data(data_filename)
     #load latest ID from data 
     if (is.null(values$current_dat)==FALSE){
       if (values$current_dat$ID[nrow(values$current_dat)]>1){
@@ -170,87 +182,61 @@ server <- function(input, output) {
     }
     #render current data
     input$Submit
-    loadData(fileName = data_filename)
+    load_data(fileName = data_filename)
     })   
   
-  #render currently estimated prior (beta - dist) from current data
-  output$est_dbeta <- renderPlot(
-    if (is.null(values$current_dat)==FALSE){
-      if (values$counter>1){
-        #fit empirical dbeta prioris to the data (one per train type)
-        #keep in mind: first estimated parameter = alpha, second = beta (for dbeta!)
-        # beta_seq <-  seq(0,1, length=100)
-        # print(str(values$current_dat[values$current_dat$tr_type==1, "fraction"]))
-        # print(values$current_dat[values$current_dat$tr_type==1, "fraction"])
-        # param_list_ice <- estimate_dbeta(values$current_dat[values$current_dat$tr_type==1, "fraction"])
-        # ice_dist <- dbeta(beta_seq, param_list_ice[1], param_list_ice[2])
-        # param_list_rerb <- estimate_dbeta(values$current_dat[values$current_dat$tr_type==2, "fraction"])
-        # rerb_dist <- dbeta(beta_seq, param_list_rerb[1], param_list_rerb[2])
-        # param_list_sbahn <- estimate_dbeta(values$current_dat[values$current_dat$tr_type==3, "fraction"])
-        # rerb_dist <- dbeta(beta_seq, param_list_sbahn[1], param_list_sbahn[2])
-        #plot current empirical fractions & render estimated dbeta on top
-        histo_fraction_ice <- ggplot(data=values$current_dat[values$current_dat$tr_type==1, ], 
-                                     aes(x=fraction)) + 
-                                     geom_histogram() +
-                                     #stat_function(fun = dbeta, colour = "red", args = list(shape1 = param_list_ice[1], shape2= param_list_ice[2])) + 
-                                     theme_minimal() +  
-                                     xlab("fraction values") +
-                                     ylab("value counts") +
-                                     ggtitle("Histogram of fractions for ICEs")
-        histo_fraction_rerb <- ggplot(data=values$current_dat[values$current_dat$tr_type==2, ], 
-                                     aes(x=fraction)) + 
-                                     geom_histogram() + 
-                                     #stat_function(fun = dbeta, colour = "red", args = list(shape1 = param_list_rerb[1], shape2= param_list_rerb[2])) + 
-                                     theme_minimal() +  
-                                     xlab("fraction values") +
-                                     ylab("value counts") +
-                                     ggtitle("Histogram of fractions for RE/RBs")
-        histo_fraction_sbahn <- ggplot(data=values$current_dat[values$current_dat$tr_type==3, ], 
-                                      aes(x=fraction)) + 
-                                      geom_histogram() +
-                                      #stat_function(fun = dbeta, colour = "red", args = list(shape1 = param_list_sbahn[1], shape2= param_list_sbahn[2])) + 
-                                      theme_minimal() +  
-                                      xlab("fraction values") +
-                                      ylab("value counts") +
-                                      ggtitle("Histogram of fractions for ICEs")
-        grid.arrange(histo_fraction_ice, histo_fraction_rerb, histo_fraction_sbahn, nrow=3)
-      }
-    })
-  
-  #render plot of current overall risk per type of train
+  #render plot of current overall posterior risk per type of train
   output$dat_dir_plot <- renderPlot({
     if (is.null(values$current_dat)==FALSE){
       if (values$counter>1){
+        
         #collapse current data by train type into new data frame for plotting
-        bayes_overall_dat <- aggregate(values$current_dat[, names(values$current_dat) %in% 
+        bayes_overall_dat <- aggregate(
+                              values$current_dat[, names(values$current_dat) 
+                              %in% 
                               c("number_inspections", "total_rides")], 
-                              list(tr_type = values$current_dat$tr_type), sum)
+                              list(tr_type = values$current_dat$tr_type), 
+                              sum)
+        
         #recalculate the overall fraction and insert variable empirical_b
-        bayes_overall_dat$fraction <- bayes_overall_dat$number_inspections / bayes_overall_dat$total_rides
-        bayes_overall_dat$empirical_b <- bayesian_update(as.numeric(bayes_overall_dat$tr_type), 
-                                                         bayes_overall_dat$number_inspections, 
-                                                         bayes_overall_dat$total_rides)
+        bayes_overall_dat$fraction <- bayes_overall_dat$number_inspections / 
+                                      bayes_overall_dat$total_rides
+        
+        bayes_overall_dat$empirical_b <- update_bayesian(
+                                         as.numeric(bayes_overall_dat$tr_type), 
+                                         bayes_overall_dat$number_inspections, 
+                                         bayes_overall_dat$total_rides)
         #value label the data
         bayes_overall_dat$tr_type <- factor(bayes_overall_dat$tr_type,
                                             levels = c(1,2,3),
                                             labels = c("ICE", "RE / RB", "Sbahn"))
         #generate plot
-        p1 <- ggplot(data = bayes_overall_dat, aes(x=tr_type, y=fraction)) + 
+        emp_plot <- ggplot(data = bayes_overall_dat, 
+                           aes(x=tr_type, y=fraction)) + 
                   geom_bar(stat="identity", color="blue", fill="white") + 
                   theme_minimal() +  
                   xlab("Train Types") +
                   ylab("Risk of ticket inspection [%]") +
-                  geom_text(aes(label=round(fraction, 2)), vjust=1.6, size=3.5, color="blue") +
+                  geom_text(aes(label=round(fraction, 2)), 
+                            vjust=1.6, 
+                            size=3.5, 
+                            color="blue") +
                   ggtitle("Empirical risk of ticket inspection")
-        p2 <- ggplot(data = bayes_overall_dat, aes(x=tr_type, y=empirical_b)) + 
+        
+        post_plot <- ggplot(data = bayes_overall_dat, 
+                            aes(x=tr_type, y=empirical_b)) + 
                 geom_bar(stat="identity", color="red", fill="white") + 
                 theme_minimal() +  
                 xlab("Train Types") +
-                geom_text(aes(label=round(empirical_b, 2)), vjust=1.6, size=3.5, color="red") + 
+                geom_text(aes(label=round(empirical_b, 2)), 
+                          vjust=1.6, 
+                          size=3.5, 
+                          color="red") + 
                 ylab("Risk of ticket inspection [%]") + 
                 ggtitle("Estimated risk of ticket inspection")
+       
        #render plot
-       grid.arrange(p1, p2, nrow = 1)
+       grid.arrange(emp_plot, post_plot, nrow = 1)
       }
     }
   })
@@ -260,41 +246,66 @@ server <- function(input, output) {
   output$dat_dur_plot <- renderPlot({
     if (is.null(values$current_dat)==FALSE){
       if (values$counter>1){
+        
         #collapse current data by train type into new data frame for plotting
-        bayes_dur_dat <- aggregate(values$current_dat[, names(values$current_dat) %in% 
-                                                            c("number_inspections", "total_rides")], 
-                                       list(tr_type = values$current_dat$tr_type), sum)
+        bayes_dur_dat <- aggregate(
+                         values$current_dat[, names(values$current_dat) 
+                         %in% 
+                         c("number_inspections", "total_rides")], 
+                         list(tr_type = values$current_dat$tr_type), 
+                         sum)
+        
         #recalculate the overall fraction and insert variable empirical_b
-        bayes_dur_dat$fraction <- bayes_dur_dat$number_inspections / bayes_dur_dat$total_rides
-        bayes_dur_dat$empirical_b <- bayesian_update(as.numeric(bayes_dur_dat$tr_type), 
-                                                     bayes_dur_dat$number_inspections, 
-                                                     bayes_dur_dat$total_rides)
+        bayes_dur_dat$fraction <- bayes_dur_dat$number_inspections / 
+                                  bayes_dur_dat$total_rides
+        
+        bayes_dur_dat$empirical_b <- update_bayesian(
+                                          as.numeric(bayes_dur_dat$tr_type), 
+                                          bayes_dur_dat$number_inspections, 
+                                          bayes_dur_dat$total_rides)
+        
         #value label the data
         bayes_dur_dat$tr_type <- factor(bayes_dur_dat$tr_type,
                                             levels = c(1,2,3),
                                             labels = c("ICE", "RE / RB", "Sbahn"))
+        
         if (sum(bayes_dur_dat$total_rides)>=1500){
           #generate plot
-          p1 <- ggplot(data = bayes_overall_dat, aes(x=tr_type, y=fraction)) + 
+          emp_plot <- ggplot(data = bayes_overall_dat, 
+                             aes(x=tr_type, y=fraction)) + 
             geom_bar(stat="identity", color="blue", fill="white") + 
             theme_minimal() +  
             xlab("Train Types") +
             ylab("Risk of ticket inspection [%]") +
-            geom_text(aes(label=round(fraction, 2)), vjust=1.6, size=3.5, color="blue") +
+            geom_text(aes(label=round(fraction, 2)), 
+                      vjust=1.6, 
+                      size=3.5, 
+                      color="blue") +
             ggtitle("Empirical risk of ticket inspection")
-          p2 <- ggplot(data = bayes_overall_dat, aes(x=tr_type, y=empirical_b)) + 
+          
+          post_plot <- ggplot(data = bayes_overall_dat, 
+                              aes(x=tr_type, y=empirical_b)) + 
             geom_bar(stat="identity", color="red", fill="white") + 
             theme_minimal() +  
             xlab("Train Types") +
-            geom_text(aes(label=round(empirical_b, 2)), vjust=1.6, size=3.5, color="red") + 
+            geom_text(aes(label=round(empirical_b, 2)), 
+                      vjust=1.6, 
+                      size=3.5, 
+                      color="red") + 
             ylab("Risk of ticket inspection [%]") + 
             ggtitle("Estimated risk of ticket inspection")
+          
           #render plot
-          grid.arrange(p1, p2, nrow = 1)
+          grid.arrange(emp_plot, post_plot, nrow = 1)
+          
         } else {
+          #if not enough data, output a message to user w. count of missing data
           output$warning <- renderUI({
-            str1 <- "I cannot yet render a plot for you, insufficient data for realiable estimation!"
-            str2 <- paste("(", (1500-sum(bayes_dur_dat$total_rides))," observations missing)")
+            str1 <- "I cannot yet render a plot for you, 
+                     insufficient data for realiable estimation!"
+            str2 <- paste("(", 
+                          (1500-sum(bayes_dur_dat$total_rides)),
+                          " observations missing)")
             HTML(paste(str1, str2, sep = '<br/>'))
           })
         }
@@ -303,5 +314,6 @@ server <- function(input, output) {
   })
 }
 
-# Run the application 
+#####
+#Run the application 
 shinyApp(ui = ui, server = server)
