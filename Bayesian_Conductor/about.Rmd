@@ -17,23 +17,24 @@ don't get inspected and be caught by a conductor off-guard?
 
 This is where we can put [bayesian inference](https://en.wikipedia.org/wiki/Bayesian_inference) to good use. It allows us
 to go into our analysis with some (reasonable) assumptions about how
-probable ticket inspections are during our train rides. Additionally, 
+probable ticket inspections are during our train rides by placing a 
+*prior* on top of the parameter of interest, $p$. Additionally, 
 we can update this belief in the light of data which we can for 
 example accumulate by riding trains and taking note wether or not 
 we get inspected. 
 
-This is possible because our estimation of the parameter $p$ results 
+This is possible because our estimation of the density of parameter $p$ results 
 from the product of the likelihood from the data and our initial 
 assumptions about the probability of ticket inspections (the so-called *priors*):
 
 $f(p|x) = \frac{f(x|p) \: f(p)}{\int f(x|p') \: f(p') \: dp'}$
 
 
-Here, the final result - the estimate of $p$ for the probability of 
-ticket inspections - stems from the expectation of the 
+Here, the final result - the updated probability of 
+ticket inspections during train rides, $p$ - stems from the expectation of the 
 resulting posterior density.
 
-As this is a very simple example, the maths behind all this are relatively
+As this is a very simple example, the math behind all this is relatively
 benign. Assuming a Beta-distributed prior $Beta(\alpha, \beta)$ and
 binomially distributed data $Bin(n,p)$, we are in the convenient situation in which the
 prior distribution and the posterior distribution stem from the same
@@ -41,7 +42,7 @@ distribution family, and are both, albeit different $Beta(\alpha, \beta)$
 distributions ([*conjugate distributions*](https://en.wikipedia.org/wiki/Conjugate_prior)).
 
 Here we see the abstract derivation of the posterior in our situation, 
-assuming a $Beta(\alpha, \beta)$ - prior:
+assuming a $Beta(\alpha, \beta)$ - prior and *iid* - data:
 
 
 
@@ -63,7 +64,7 @@ $$
 \end{aligned}
 $$
 
-Using these results, we can estimate our probability $p$ to get inspected
+Using these results, we can calculate our (updated) probability $p$ to get inspected
 during a number of train rides $n$ as:
 
 $$ \mathbb{E} \: [\theta | x] = \frac{\alpha^{*}}{\alpha^{*}+\beta^{*}}$$
@@ -83,10 +84,10 @@ course also calculated and stored in the main data table.
 ## Prioris
 
 We might reasonably assume that the risk of getting into a ticket inspection
-differs between different sorts of trains. In an ICE, as fast-moving city-to-city
-express, it is very certain that an individual have his ticket inspected, and
+differs between different sorts of trains. In an ICE, a fast-moving city-to-city
+express, it is very certain that an individual has his ticket inspected, and
 it is more or less mandatory to also have a ticket if you book an individual seat
-on such a train. In a local commuter train (S-Bahn), on the other hand it might
+on such a train. In a local commuter train (S-Bahn) on the other hand, it might
 not always be the case that a ticket inspection officer is riding your train. 
 Hence, the assumed risk to experience a ticket inspection has to be lower. 
 Lastly, regional or local trains, which cover greater distances than commuter trains
@@ -132,7 +133,7 @@ your dues!).
 The next and maybe even more serious limitation stems from the problem 
 of correctly sampling information from train rides. An individual riding
 his or her commuter trains might miss some ticket inspections merely by chance
-or have a heavily inspected commute day in, day out. From this experience
+or has a heavily inspected commute day in, day out. From this experience
 one cannot readily infer the overall probability of inspection for all train
 customers. 
 
