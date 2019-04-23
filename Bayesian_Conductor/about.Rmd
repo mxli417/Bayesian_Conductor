@@ -42,7 +42,7 @@ distribution family, and are both, albeit different $Beta(\alpha, \beta)$
 distributions ([*conjugate distributions*](https://en.wikipedia.org/wiki/Conjugate_prior)).
 
 Here we see the abstract derivation of the posterior in our situation, 
-assuming a $Beta(\alpha, \beta)$ - prior and *iid* - data:
+assuming a $Beta(\alpha, \beta)$ - prior and $iid$ - data:
 
 
 

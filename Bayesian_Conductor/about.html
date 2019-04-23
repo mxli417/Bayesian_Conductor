@@ -386,7 +386,7 @@ $(document).ready(function () {
 <p><span class="math inline">\(f(p|x) = \frac{f(x|p) \: f(p)}{\int f(x|p') \: f(p') \: dp'}\)</span></p>
 <p>Here, the final result - the updated probability of ticket inspections during train rides, <span class="math inline">\(p\)</span> - stems from the expectation of the resulting posterior density.</p>
 <p>As this is a very simple example, the math behind all this is relatively benign. Assuming a Beta-distributed prior <span class="math inline">\(Beta(\alpha, \beta)\)</span> and binomially distributed data <span class="math inline">\(Bin(n,p)\)</span>, we are in the convenient situation in which the prior distribution and the posterior distribution stem from the same distribution family, and are both, albeit different <span class="math inline">\(Beta(\alpha, \beta)\)</span> distributions (<a href="https://en.wikipedia.org/wiki/Conjugate_prior"><em>conjugate distributions</em></a>).</p>
-<p>Here we see the abstract derivation of the posterior in our situation, assuming a <span class="math inline">\(Beta(\alpha, \beta)\)</span> - prior and <em>iid</em> - data:</p>
+<p>Here we see the abstract derivation of the posterior in our situation, assuming a <span class="math inline">\(Beta(\alpha, \beta)\)</span> - prior and <span class="math inline">\(iid\)</span> - data:</p>
 <p><span class="math display">\[ 
 \begin{aligned}
 \ f(\theta|x) = \frac{f(x|\theta) f(\theta)}{\int f(x|p') \: f(p') \: dp'} \\
